@@ -38,7 +38,7 @@ const humidGauge = new promclient.Gauge({
 });
 const carbonGauge = new promclient.Gauge({
     name: "co",
-    help: "Co Gauge",
+    help: "Carbon Gauge",
 });
 
 const tempHandler = (message: Buffer) => {
