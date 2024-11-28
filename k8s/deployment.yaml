@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/master/deployment.json
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iotstream
+  labels:
+    app: iotstream
+spec:
+  selector:
+    matchLabels:
+      app: iotstream
+  template:
+    metadata:
+      labels:
+        app: iotstream
+    spec:
+      containers:
+        - name: iotstream
+          image: mirzaahilmi/iotstream:1.0.0
+          ports:
+            - containerPort: 3000
+              name: iotstream
+          env:
+            - name: MQTT_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: iotstream
+                  key: MQTT_HOST
+            - name: MQTT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: iotstream
+                  key: MQTT_USERNAME
+            - name: MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: iotstream
+                  key: MQTT_PASSWORD
