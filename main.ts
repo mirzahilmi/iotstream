@@ -38,10 +38,39 @@ const tempHandler = (message: Buffer) => {
     tempGauge.set(temp);
 };
 
+const humidityGauge = new promclient.Gauge({
+    name: "humidity",
+    help: "Humidity Gauge",
+});
+
+const humidityHandler = (message: Buffer) => {
+    const humidity = Number(message.toString());
+    humidityGauge.set(humidity);
+};
+
+const coGauge = new promclient.Gauge({
+    name: "co",
+    help: "CO Gauge",
+});
+
+const coHandler = (message: Buffer) => {
+    const co = Number(message.toString());
+    coGauge.set(co);
+};
+
 client.on("message", (topic, message, _) => {
     console.log(`Message received: ${topic}: ${message.toString()}`);
-    tempHandler(message);
-    // ...
+    switch (topic) {
+        case "icnss/temperature":
+            tempHandler(message);
+            break;
+        case "icnss/humidity":
+            humidityHandler(message);
+            break;
+        case "icnss/co":
+            coHandler(message);
+            break;
+    }
 });
 
 const app = express();
