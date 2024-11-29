@@ -5,48 +5,83 @@ import express from "express";
 import { Buffer } from "node:buffer";
 
 const client = mqtt.connect(`mqtt:${Deno.env.get("MQTT_HOST")}`, {
-    username: Deno.env.get("MQTT_USERNAME"),
-    password: Deno.env.get("MQTT_PASSWORD"),
-    port: Number(Deno.env.get("MQTT_PASSWORD")),
-    connectTimeout: 10 * 1000,
+  username: Deno.env.get("MQTT_USERNAME"),
+  password: Deno.env.get("MQTT_PASSWORD"),
+  port: Number(Deno.env.get("MQTT_PASSWORD")),
+  connectTimeout: 10 * 1000,
 });
 console.log("Connecting...");
 client.on("connect", () => {
-    client.subscribe([
-        "icnss/temperature",
-        "icnss/humidity",
-        "icnss/co",
-    ]);
-    console.log("Connected!");
+  client.subscribe(["icnss/temperature", "icnss/humidity", "icnss/co"]);
+  console.log("Connected!");
 });
 client.on("reconnect", () => {
-    console.log("Reconnecting...");
+  console.log("Reconnecting...");
 });
 client.on("error", () => {
-    console.log("Connection failed, exiting...");
-    client.end();
-    Deno.exit();
+  console.log("Connection failed, exiting...");
+  client.end();
+  Deno.exit();
 });
 
 const tempGauge = new promclient.Gauge({
-    name: "temperature",
-    help: "Temperature Gauge",
+  name: "temperature",
+  help: "Temperature Gauge",
 });
 
 const tempHandler = (message: Buffer) => {
-    const temp = Number(message.toString());
-    tempGauge.set(temp);
+  const temp = Number(message.toString());
+  tempGauge.set(temp);
 };
 
+const humidityGauge = new promclient.Gauge({
+  name: "humidity",
+  help: "Humidity Gauge",
+});
+
+const humidityHandler = (message: Buffer) => {
+  const humidity = Number(message.toString());
+  humidityGauge.set(humidity);
+};
+
+const coGauge = new promclient.Gauge({
+  name: "co",
+  help: "CO Gauge",
+});
+
+const coHandler = (message: Buffer) => {
+  const co = Number(message.toString());
+  coGauge.set(co);
+};
+
+const topics = [
+  {
+    topic: "icnss/temperature",
+    handler: tempHandler,
+  },
+  {
+    topic: "icnss/humidity",
+    handler: humidityHandler,
+  },
+  {
+    topic: "icnss/co",
+    handler: coHandler,
+  },
+];
+
 client.on("message", (topic, message, _) => {
-    console.log(`Message received: ${topic}: ${message.toString()}`);
-    tempHandler(message);
-    // ...
+  console.log(`Message received: ${topic}: ${message.toString()}`);
+
+  const topicHandler = topics.find((t) => t.topic === topic);
+  if (topicHandler) {
+    topicHandler.handler(message);
+  }
 });
 
 const app = express();
 app.get("/metrics", async (_, res) => {
-    res.set("Content-Type", promclient.register.contentType)
-        .send(await promclient.register.metrics());
+  res
+    .set("Content-Type", promclient.register.contentType)
+    .send(await promclient.register.metrics());
 });
 app.listen(3000);
