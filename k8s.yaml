@@ -1,0 +1,194 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mqtt-credentials
+type: Opaque
+stringData:
+  host: your-mqtt-host
+  username: your-mqtt-username
+  password: your-mqtt-password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-credentials
+  namespace: iot-monitoring
+type: Opaque
+stringData:
+  admin-password: your-grafana-admin-password
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vmagent-config
+  namespace: iot-monitoring
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+    - job_name: 'iot-data-exporter'
+      static_configs:
+      - targets: ['iot-data-exporter:3000']
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iot-data-exporter
+  namespace: iot-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: iot-data-exporter
+  pod:
+    metadata:
+      labels:
+        app: iot-data-exporter
+    spec:
+      containers:
+      - name: iot-data-exporter
+        image: mirzaahilmi/iotstream:latest
+        ports:
+        - containerPort: 3000
+          name: iot-data-exporter
+        env:
+        - name: MQTT_HOST
+          valueFrom:
+            secretKeyRef:
+              name: mqtt-credentials
+              key: host
+        - name: MQTT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mqtt-credentials
+              key: username
+        - name: MQTT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mqtt-credentials
+              key: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iot-data-exporter
+  namespace: iot-monitoring
+spec:
+  selector:
+    app: iot-data-exporter
+  ports:
+    - port: 3000
+      targetPort: iot-data-exporter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: victoriametrics
+  namespace: iot-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: victoriametrics
+  template:
+    metadata:
+      labels:
+        app: victoriametrics
+    spec:
+      containers:
+      - name: victoriametrics
+        image: victoriametrics/victoria-metrics:latest
+        ports:
+        - containerPort: 8428
+        args:
+        - -storageDataPath=/storage
+        - -retentionPeriod=30d
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+      volumes:
+      - name: storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: victoriametrics
+  namespace: iot-monitoring
+spec:
+  selector:
+    app: victoriametrics
+  ports:
+    - port: 8428
+      targetPort: 8428
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmagent
+  namespace: iot-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vmagent
+  template:
+    metadata:
+      labels:
+        app: vmagent
+    spec:
+      containers:
+      - name: vmagent
+        image: victoriametrics/vmagent:latest
+        args:
+        - -promscrape.config=/config/prometheus.yaml
+        - -remoteWrite.url=http://victoriametrics:8428/api/v1/write
+        volumeMounts:
+        - name: config
+          mountPath: /config
+      volumes:
+      - name: config
+        configMap:
+          name: vmagent-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: iot-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: grafana-credentials
+              key: admin-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: iot-monitoring
+spec:
+  type: LoadBalancer
+  selector:
+    app: grafana
+  ports:
+    - port: 80
+      targetPort: 3000
