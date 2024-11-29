@@ -1,4 +1,9 @@
+username=mirzaahilmi
+
 oci:
 	docker build --tag iotstream:latest .
 
-.PHONY: oci
+ociupstream:
+	docker build --tag ${username}/iotstream:latest .
+
+.PHONY: oci ociupstream
