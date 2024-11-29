@@ -28,11 +28,11 @@ services:
     depends_on:
       - victoriametrics
     volumes:
-      - ./vmagent-config.yml:/config.yml
+      - ./victoriametrics.yaml:/etc/prometheus/prometheus.yaml
       - vmagent-data:/vmagentdata
     command:
-      - '--proxyURL=http://victoriametrics:8428'
-      - '--configFile=/config.yml'
+      - "--promscrape.config=/etc/prometheus/prometheus.yaml"
+      - "--remoteWrite.url=http://victoriametrics:8428/api/v1/write"
     restart: unless-stopped
 
   grafana:
