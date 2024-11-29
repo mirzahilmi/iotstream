@@ -5,9 +5,7 @@ volumes:
 
 services:
   backend:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    build: .
     environment:
       - MQTT_HOST=${MQTT_HOST:-localhost}
       - MQTT_USERNAME=${MQTT_USERNAME}
@@ -17,7 +15,7 @@ services:
     restart: unless-stopped
 
   victoriametrics:
-    image: victoriadata/victoria-metrics:latest
+    image: victoriametrics/victoria-metrics
     volumes:
       - vm-data:/storage
     command:
@@ -26,7 +24,7 @@ services:
     restart: unless-stopped
 
   vmagent:
-    image: victoriadata/vmagent:latest
+    image: victoriametrics/vmagent
     depends_on:
       - victoriametrics
     volumes:
