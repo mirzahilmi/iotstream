@@ -1,2 +1,3 @@
 .envrc
 .env
+k8s.secret.json
